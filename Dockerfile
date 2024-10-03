@@ -1,31 +1,14 @@
-# Étape 1 : Utiliser l'image de base Go pour la construction
-FROM golang:1.20 AS builder
+FROM alpine:latest AS git
 
-# Définir le répertoire de travail
+FROM golang:1.16-alpine AS builder
 WORKDIR /app
+COPY --from=git /mygoapp ./
+RUN go mod init mygoapp
+RUN go env -w CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+RUN go build -a -installsuffix cgo -o myapp .
 
-# Initier le module Go et télécharger les dépendances
-RUN go mod init myapp
-
-# Copier le code source
-COPY . .
-
-# Construire l'application
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o myapp .
-
-RUN go build -o myapp .
-
-# Étape 2 : Créer l'image finale
-FROM alpine:latest
-
-# Définir le répertoire de travail
-WORKDIR /root/
-
-# Copier le binaire de l'application depuis le builder
-COPY --from=builder /app/myapp .
-
-# Exposer le port
-EXPOSE 9090
-
-# Commande pour exécuter l'application
-CMD ["./myapp"]
+FROM scratch
+COPY --from=builder /app/myapp /myapp
+WORKDIR /app
+EXPOSE 8080
+CMD [ "/myapp" ]
